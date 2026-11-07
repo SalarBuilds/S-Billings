@@ -4,7 +4,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -15,21 +15,22 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter 3.24.5
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
 
-      - name: Create Billing App Project
+      - name: Setup App
         run: |
           flutter create --org com.mybilling.app --project-name billing_app billing_app
-          mkdir -p ~/.gradle
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" > ~/.gradle/gradle.properties
+          cd billing_app
+          echo "org.gradle.jvmargs=-Xmx4096m" >> android/gradle.properties
 
-      - name: Inject Clean Flutter App Code
+      - name: Create Main Dart File
+        working-directory: billing_app
         run: |
-          cat > billing_app/lib/main.dart << 'EOF'
+          cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
 
           void main() {
@@ -120,7 +121,7 @@ jobs:
                       onPressed: () {
                         double p = double.tryParse(payCtrl.text) ?? 0.0;
                         setState(() {
-                          _parties[index]['paid'] += p;
+                          _parties[index]['paid'] = (_parties[index]['paid'] as double) + p;
                         });
                         Navigator.pop(ctx);
                       },
@@ -184,12 +185,12 @@ jobs:
           EOF
 
       - name: Build APK File
-        run: |
-          cd billing_app
-          flutter build apk --debug --split-per-abi
+        working-directory: billing_app
+        run: flutter build apk --debug
 
       - name: Upload APK Download
         uses: actions/upload-artifact@v4
         with:
-          name: BillingApp-ARM64-APK
-          path: billing_app/build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          name: BillingApp-Installable-APK
+          path: billing_app/build/app/outputs/flutter-apk/app-debug.apk
+          
