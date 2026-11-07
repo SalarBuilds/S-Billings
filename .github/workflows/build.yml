@@ -15,14 +15,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Flutter
+      - name: Set up Flutter 3.24.5
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.5'
           channel: 'stable'
 
       - name: Create Billing App Project
         run: |
           flutter create --org com.mybilling.app --project-name billing_app billing_app
+          mkdir -p ~/.gradle
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" > ~/.gradle/gradle.properties
 
       - name: Inject Clean Flutter App Code
         run: |
@@ -183,10 +186,10 @@ jobs:
       - name: Build APK File
         run: |
           cd billing_app
-          flutter build apk --debug
+          flutter build apk --debug --split-per-abi
 
       - name: Upload APK Download
         uses: actions/upload-artifact@v4
         with:
-          name: BillingApp-Installable-APK
-          path: billing_app/build/app/outputs/flutter-apk/app-debug.apk
+          name: BillingApp-ARM64-APK
+          path: billing_app/build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
