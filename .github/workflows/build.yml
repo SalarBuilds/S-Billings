@@ -12,7 +12,7 @@ jobs:
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
 
       - name: Set up Flutter
@@ -20,8 +20,9 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup App
+      - name: Setup App & Licenses
         run: |
+          yes | flutter doctor --android-licenses || true
           flutter create --org com.mybilling.app --project-name billing_app billing_app
           cd billing_app
           flutter pub add sqflite path
@@ -154,11 +155,10 @@ jobs:
       - name: Build APK
         run: |
           cd billing_app
-          flutter build apk --release
+          flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: InvoiceApp-Release
           path: billing_app/build/app/outputs/flutter-apk/app-release.apk
-          
