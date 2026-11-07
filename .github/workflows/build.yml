@@ -43,11 +43,11 @@ jobs:
           class BillingHomeScreen extends StatefulWidget {
             const BillingHomeScreen({super.key});
             @override
-            State<BillingHomeScreen> createState() => _BillingHomeScreenState();
+            State createState() => _BillingHomeScreenState();
           }
 
-          class _BillingHomeScreenState extends State<BillingHomeScreen> {
-            final List> _parties = [
+          class _BillingHomeScreenState extends State {
+            List _parties = [
               {"name": "Vendor A", "bill": 12500.0, "paid": 8000.0},
               {"name": "Vendor B", "bill": 45000.0, "paid": 45000.0},
             ];
@@ -69,7 +69,7 @@ jobs:
                       ),
                       TextField(
                         controller: _amountCtrl,
-                        decoration: const InputDecoration(labelText: "Bill Amount (₹)"),
+                        decoration: const InputDecoration(labelText: "Bill Amount (Rs)"),
                         keyboardType: TextInputType.number,
                       ),
                     ],
@@ -109,7 +109,7 @@ jobs:
                   title: Text("Payment: ${_parties[index]['name']}"),
                   content: TextField(
                     controller: payCtrl,
-                    decoration: const InputDecoration(labelText: "Amount Received (₹)"),
+                    decoration: const InputDecoration(labelText: "Amount Received (Rs)"),
                     keyboardType: TextInputType.number,
                   ),
                   actions: [
@@ -121,7 +121,8 @@ jobs:
                       onPressed: () {
                         double p = double.tryParse(payCtrl.text) ?? 0.0;
                         setState(() {
-                          _parties[index]['paid'] = (_parties[index]['paid'] as double) + p;
+                          double currentPaid = double.tryParse(_parties[index]['paid'].toString()) ?? 0.0;
+                          _parties[index]['paid'] = currentPaid + p;
                         });
                         Navigator.pop(ctx);
                       },
@@ -144,17 +145,21 @@ jobs:
                   itemCount: _parties.length,
                   itemBuilder: (ctx, i) {
                     final p = _parties[i];
-                    double due = (p['bill'] as double) - (p['paid'] as double);
+                    String pName = p['name'].toString();
+                    double pBill = double.tryParse(p['bill'].toString()) ?? 0.0;
+                    double pPaid = double.tryParse(p['paid'].toString()) ?? 0.0;
+                    double due = pBill - pPaid;
+                    
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: ListTile(
-                        title: Text(p['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("Total Bill: ₹${p['bill']} | Jama: ₹${p['paid']}"),
+                        title: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("Total Bill: Rs $pBill | Jama: Rs $pPaid"),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              "Due: ₹$due",
+                              "Due: Rs $due",
                               style: TextStyle(
                                 color: due > 0 ? Colors.red : Colors.green,
                                 fontWeight: FontWeight.bold,
@@ -193,4 +198,3 @@ jobs:
         with:
           name: BillingApp-Installable-APK
           path: billing_app/build/app/outputs/flutter-apk/app-debug.apk
-          
