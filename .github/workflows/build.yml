@@ -20,19 +20,21 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup App & Licenses
+      - name: Create Billing App Project
         run: |
-          yes | flutter doctor --android-licenses || true
           flutter create --org com.mybilling.app --project-name billing_app billing_app
-          cd billing_app
-          flutter pub add sqflite path
 
-      - name: Write App Code
+      - name: Inject Clean Flutter App Code
         run: |
           cat > billing_app/lib/main.dart << 'EOF'
           import 'package:flutter/material.dart';
 
-          void main() => runApp(const MaterialApp(home: BillingHomeScreen()));
+          void main() {
+            runApp(const MaterialApp(
+              home: BillingHomeScreen(),
+              debugShowCheckedModeBanner: false,
+            ));
+          }
 
           class BillingHomeScreen extends StatefulWidget {
             const BillingHomeScreen({super.key});
@@ -57,12 +59,22 @@ jobs:
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextField(controller: _partyCtrl, decoration: const InputDecoration(labelText: "Party / Vendor Name")),
-                      TextField(controller: _amountCtrl, decoration: const InputDecoration(labelText: "Bill Amount (₹)"), keyboardType: TextInputType.number),
+                      TextField(
+                        controller: _partyCtrl,
+                        decoration: const InputDecoration(labelText: "Party / Vendor Name"),
+                      ),
+                      TextField(
+                        controller: _amountCtrl,
+                        decoration: const InputDecoration(labelText: "Bill Amount (₹)"),
+                        keyboardType: TextInputType.number,
+                      ),
                     ],
                   ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("Cancel"),
+                    ),
                     ElevatedButton(
                       onPressed: () {
                         if (_partyCtrl.text.isNotEmpty && _amountCtrl.text.isNotEmpty) {
@@ -97,7 +109,10 @@ jobs:
                     keyboardType: TextInputType.number,
                   ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text("Cancel"),
+                    ),
                     ElevatedButton(
                       onPressed: () {
                         double p = double.tryParse(payCtrl.text) ?? 0.0;
@@ -116,12 +131,16 @@ jobs:
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                appBar: AppBar(title: const Text("Invoice & Vendor Ledger"), backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                appBar: AppBar(
+                  title: const Text("Invoice & Vendor Ledger"),
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                ),
                 body: ListView.builder(
                   itemCount: _parties.length,
                   itemBuilder: (ctx, i) {
                     final p = _parties[i];
-                    double due = p['bill'] - p['paid'];
+                    double due = (p['bill'] as double) - (p['paid'] as double);
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: ListTile(
@@ -130,11 +149,20 @@ jobs:
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("Due: ₹$due", style: TextStyle(color: due > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
+                            Text(
+                              "Due: ₹$due",
+                              style: TextStyle(
+                                color: due > 0 ? Colors.red : Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             InkWell(
                               onTap: () => _recordPayment(i),
-                              child: const Text("Add Payment", style: TextStyle(color: Colors.blue, fontSize: 12)),
+                              child: const Text(
+                                "Add Payment",
+                                style: TextStyle(color: Colors.blue, fontSize: 12),
+                              ),
                             )
                           ],
                         ),
@@ -152,13 +180,13 @@ jobs:
           }
           EOF
 
-      - name: Build APK
+      - name: Build APK File
         run: |
           cd billing_app
-          flutter build apk --release --no-tree-shake-icons
+          flutter build apk --debug
 
-      - name: Upload APK Artifact
+      - name: Upload APK Download
         uses: actions/upload-artifact@v4
         with:
-          name: InvoiceApp-Release
-          path: billing_app/build/app/outputs/flutter-apk/app-release.apk
+          name: BillingApp-Installable-APK
+          path: billing_app/build/app/outputs/flutter-apk/app-debug.apk
