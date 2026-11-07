@@ -1,0 +1,164 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Setup App
+        run: |
+          flutter create --org com.mybilling.app --project-name billing_app billing_app
+          cd billing_app
+          flutter pub add sqflite path
+
+      - name: Write App Code
+        run: |
+          cat > billing_app/lib/main.dart << 'EOF'
+          import 'package:flutter/material.dart';
+
+          void main() => runApp(const MaterialApp(home: BillingHomeScreen()));
+
+          class BillingHomeScreen extends StatefulWidget {
+            const BillingHomeScreen({super.key});
+            @override
+            State<BillingHomeScreen> createState() => _BillingHomeScreenState();
+          }
+
+          class _BillingHomeScreenState extends State<BillingHomeScreen> {
+            final List> _parties = [
+              {"name": "Vendor A", "bill": 12500.0, "paid": 8000.0},
+              {"name": "Vendor B", "bill": 45000.0, "paid": 45000.0},
+            ];
+
+            final _partyCtrl = TextEditingController();
+            final _amountCtrl = TextEditingController();
+
+            void _addBill() {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("Naya Bill"),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(controller: _partyCtrl, decoration: const InputDecoration(labelText: "Party / Vendor Name")),
+                      TextField(controller: _amountCtrl, decoration: const InputDecoration(labelText: "Bill Amount (₹)"), keyboardType: TextInputType.number),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_partyCtrl.text.isNotEmpty && _amountCtrl.text.isNotEmpty) {
+                          setState(() {
+                            _parties.add({
+                              "name": _partyCtrl.text,
+                              "bill": double.tryParse(_amountCtrl.text) ?? 0.0,
+                              "paid": 0.0,
+                            });
+                          });
+                          _partyCtrl.clear();
+                          _amountCtrl.clear();
+                          Navigator.pop(ctx);
+                        }
+                      },
+                      child: const Text("Save"),
+                    )
+                  ],
+                ),
+              );
+            }
+
+            void _recordPayment(int index) {
+              final payCtrl = TextEditingController();
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text("Payment: ${_parties[index]['name']}"),
+                  content: TextField(
+                    controller: payCtrl,
+                    decoration: const InputDecoration(labelText: "Amount Received (₹)"),
+                    keyboardType: TextInputType.number,
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+                    ElevatedButton(
+                      onPressed: () {
+                        double p = double.tryParse(payCtrl.text) ?? 0.0;
+                        setState(() {
+                          _parties[index]['paid'] += p;
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text("Record & Adjust"),
+                    )
+                  ],
+                ),
+              );
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                appBar: AppBar(title: const Text("Invoice & Vendor Ledger"), backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                body: ListView.builder(
+                  itemCount: _parties.length,
+                  itemBuilder: (ctx, i) {
+                    final p = _parties[i];
+                    double due = p['bill'] - p['paid'];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: ListTile(
+                        title: Text(p['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text("Total Bill: ₹${p['bill']} | Jama: ₹${p['paid']}"),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text("Due: ₹$due", style: TextStyle(color: due > 0 ? Colors.red : Colors.green, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            InkWell(
+                              onTap: () => _recordPayment(i),
+                              child: const Text("Add Payment", style: TextStyle(color: Colors.blue, fontSize: 12)),
+                            )
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                floatingActionButton: FloatingActionButton(
+                  onPressed: _addBill,
+                  backgroundColor: Colors.indigo,
+                  child: const Icon(Icons.add, color: Colors.white),
+                ),
+              );
+            }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          cd billing_app
+          flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InvoiceApp-Release
+          path: billing_app/build/app/outputs/flutter-apk/app-release.apk
+          
